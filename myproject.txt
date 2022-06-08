@@ -1,1 +1,36 @@
-
+# docker-compose.yaml
+  version: '3.8'
+  services:
+    nginx:
+      image: jc21/nginx-proxy-manager:latest
+#      image: bitnami/nginx
+      restart: always
+      privileged: true
+      user: root
+      ports:
+      - 80:80
+      - 443:443
+      - 81:81
+      environment:
+      - DB_SQLITE_FILE: "/data/npm.sqlite"
+#      - NGINX_HOST=foobar.com
+#      - NGINX_PORT=80
+      container_name: 'nginx_npm'
+#      volumes:
+#      - /home/ds5/nginx_compose/nginx_configuration/conf.d/default.conf:/etc/nginx/custom/default.conf
+#      - /home/ds5/nginx_compose/nginx_configuration/nginx.conf:/etc/nginx/custom/nginx.conf
+#      - /home/ds5/nginx_compose/nginx_configuration/conf.d/jenkins.conf:/etc/nginx/custom/jenkins.conf
+#      - /home/ds5/nginx_compose/nginx_configuration/ssl/:/ssl/
+#      - /home/ds5/nginx_compose/nginx_configuration/logs:/var/log/nginx/
+      volumes:
+      - /home/ds5/nginx_compose/npm_conf/data:/data
+      - /home/ds5/nginx_compose/npm_conf:/etc/letsencrypt
+      networks:
+      - jenkins_rp
+  volumes:
+    nginx_home:
+      driver: local
+  networks:
+    jenkins_rp:
+    driver: bridge
+    name: jenkins_rp
