@@ -1,0 +1,81 @@
+pipeline { 
+  environment { 
+      registry_maven = "http://ds2-virtualbox:8082/artifactory/libs-snapshot-local/" 
+      registry_docker = "ds2-virtualbox:8082/docker-local/maven_image"
+      USER_CREDENTIALS_JFROG = credentials('artifactory_credentials')
+      registryCredential = 'artifactory_credentials' 
+      dockerImage = ''
+      }
+  agent any
+  stages { 
+      stage('Git Maven Code') { 
+          steps { 
+              git url: 'https://github.com/dstanbeca/pipeline_javaweb.git', branch: 'main'
+          }
+      }
+      stage('Complie') { 
+          steps { 
+              script { 
+                 sh 'mvn clean install'
+              }
+          } 
+      }
+      stage('Deploy Maven') { 
+          steps { 
+              script { 
+                 sh 'mvn deploy'
+              }
+          } 
+      }
+      stage('Copy Resources') {
+          steps {
+              script {
+                 sh "cp /home/jenkins/jenkins_slave/workspace/Maven_push/target/*.war /home/jenkins/jenkins_slave/workspace/Maven_push/"
+              }
+              
+          }
+      }
+//      stage('Push Maven Artifact') { 
+//          steps { 
+//              script { 
+//                  sh 'curl -X PUT -u ${USER_CREDENTIALS_JFROG} -T *.war "http://ds2-virtualbox:8082/artifactory/libs-snapshot-local/sysfoo_$BUILD_NUMBER.war"'
+//                  }
+//              } 
+//          }
+      stage('Git Dockerfile') { 
+          steps { 
+              git url: 'https://github.com/dstanbeca/pipeline_javaweb_dockerfile.git', branch: 'main'
+          }
+      }  
+      stage('Building our image') { 
+          steps { 
+              script { 
+                 dockerImage = docker.build registry_docker + ":$BUILD_NUMBER"
+              }
+          } 
+      }
+      stage('Deploy our image') { 
+          steps { 
+              script { 
+                  docker.withRegistry( 'http://ds2-virtualbox:8082/docker-local/', registryCredential ) { 
+                      dockerImage.push() 
+                  }
+              } 
+          }
+      } 
+      stage('Image deploy on slave') {
+          steps {
+             script {
+             sh "docker -H tcp://192.168.1.11:2375 pull $registry_docker:$BUILD_NUMBER"
+             sh "docker -H tcp://192.168.1.11:2375 run -d -p 8090:8080 $registry_docker:$BUILD_NUMBER"
+             }
+          }
+      }
+      stage('Cleaning up') { 
+          steps { 
+              sh "docker rmi $registry_docker:$BUILD_NUMBER" 
+          }
+      } 
+    } 
+}
+
